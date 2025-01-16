@@ -5,6 +5,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter(); // Initialize Hive
   await Hive.openBox<Map>('groupsBox'); // Open the Hive box before running the app
+  await Hive.openBox<Map>('eventsBox');
   runApp(const MyApp());
 }
 
@@ -39,10 +40,22 @@ class _MyHomePageState extends State<MyHomePage> {
   List<String> members = [];
 
   final Box<Map> groupsBox = Hive.box<Map>('groupsBox'); // Access the Hive box
+  final Box<Map> eventsBox = Hive.box<Map>('eventsBox'); // Access the Hive box
+
+
 
   void _addEventDialog() {
     final TextEditingController eventNameController = TextEditingController();
     String? selectedGroupName;
+
+    // Ensure boxes are open
+    if (!Hive.isBoxOpen('groupsBox') || !Hive.isBoxOpen('eventsBox')) {
+      print('Hive boxes are not open!');
+      return;
+    }
+
+    final Box<Map> groupsBox = Hive.box<Map>('groupsBox');
+    final Box<Map> eventsBox = Hive.box<Map>('eventsBox');
 
     showDialog(
       context: context,
@@ -88,7 +101,6 @@ class _MyHomePageState extends State<MyHomePage> {
                     String eventName = eventNameController.text.trim();
                     if (eventName.isNotEmpty && selectedGroupName != null) {
                       // Save the event data to Hive
-                      final eventsBox = Hive.box<Map>('eventsBox');
                       eventsBox.add({
                         'eventName': eventName,
                         'groupName': selectedGroupName,
@@ -129,6 +141,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
 
+
   void _navigateToCreateEditPage() {
     Navigator.push(
       context,
@@ -162,11 +175,15 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: Stack(
         children: [
+          // "Create Group" Button
           Positioned(
             top: 20,
             left: 20,
             child: ElevatedButton(
-              onPressed: _navigateToCreateEditPage,
+              onPressed: () {
+                _navigateToCreateEditPage();
+                setState(() {}); // Ensure UI refresh after navigation
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.deepPurple,
                 padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 10),
@@ -183,11 +200,16 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
             ),
           ),
+
+          // "Add Event" Button
           Positioned(
             top: 20,
             right: 20,
             child: OutlinedButton(
-              onPressed: _navigateToAddEventPage,
+              onPressed: () {
+                _navigateToAddEventPage();
+                setState(() {}); // Ensure UI refresh after adding event
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.deepPurple,
                 padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 10),
@@ -205,11 +227,109 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
           ),
 
+          // Card to display events with button inside each card
+          Positioned(
+            top: 100,
+            left: 20,
+            right: 20,
+            child: ValueListenableBuilder(
+              valueListenable: eventsBox.listenable(),
+              builder: (context, Box eventsBox, _) {
+                return ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: eventsBox.length,
+                  itemBuilder: (context, index) {
+                    final eventKey = eventsBox.keyAt(index); // Get the key
+                    final event = eventsBox.get(eventKey); // Get the event data
 
+                    return Card(
+                      elevation: 3,
+                        color: Colors.yellow,
+                      margin: const EdgeInsets.symmetric(vertical: 10),
+                      child: SizedBox(
+                        height: 80, // Ensure enough height for the Stack
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Stack(
+                            children: [
+                              Positioned(
+                                top: 0,
+                                left: 0,
+                                child: Text(
+                                  event['eventName'] ?? '',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 20,
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                top: 30,
+                                left: 0,
+                                child: Text(
+                                  '${event['groupName'] ?? ''}',
+                                  style: const TextStyle(fontSize: 18),
+                                ),
+                              ),
+                              Positioned(
+                                top: 5,
+                                left: 180,
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    // Handle the button press using the key-value pair
+                                    print('Button pressed for event key: $eventKey');
+                                    print('Event data: $event');
+
+                                    // Your custom logic
+                                    // _startTrackingEvent(eventKey, event);
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.black,
+                                    padding: const EdgeInsets.symmetric(vertical: 10),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    minimumSize: const Size(120, 30), // Set minimum width and height
+                                    maximumSize: const Size(200, 60), // Optionally set maximum size
+                                  ),
+                                  child: const Text(
+                                    'Start Tracking',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                top: 5,
+                                right: 0,
+                                child: IconButton(
+                                  icon: const Icon(Icons.cancel, color: Colors.black),
+                                  onPressed: () {
+                                    eventsBox.delete(eventKey);
+                                    setState(() {}); // Refresh UI after deletion
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+
+                  },
+                );
+              },
+            ),
+          ),
         ],
       ),
     );
   }
+
+
 }
 
 class CreateEditGroupsPage extends StatefulWidget {
